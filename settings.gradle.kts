@@ -1,3 +1,13 @@
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+
+
 @file:Suppress("UnstableApiUsage")
 
 dependencyResolutionManagement {
