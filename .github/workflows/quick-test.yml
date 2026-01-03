@@ -1,12 +1,13 @@
 - name: Generate persistent debug keystore
-        run: |
-          mkdir -p app
-          keytool -genkeypair \
-            -keystore app/persistent-debug.keystore \
-            -storepass android \
-            -keypass android \
-            -alias androiddebugkey \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
-            -dname "CN=Android Debug,O=Android,C=US"
+  run: |
+    mkdir -p app
+    keytool -genkeypair \
+      -keystore app/persistent-debug.keystore \
+      -storetype JKS \
+      -storepass android \
+      -keypass android \
+      -alias androiddebugkey \
+      -keyalg RSA \
+      -keysize 2048 \
+      -validity 10000 \
+      -dname "CN=Android Debug,O=Android,C=US"
