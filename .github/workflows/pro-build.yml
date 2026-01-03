@@ -43,6 +43,20 @@ jobs:
           
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
+        - name: Generate Android debug keystore
+  run: |
+    mkdir -p ~/.android
+    keytool -genkeypair \
+      -keystore ~/.android/debug.keystore \
+      -storetype JKS \
+      -storepass android \
+      -keypass android \
+      -alias androiddebugkey \
+      -keyalg RSA \
+      -keysize 2048 \
+      -validity 10000 \
+      -dname "CN=Android Debug,O=Android,C=US"
+      
 
       - name: Build Release APK and Run Lint
         run: ./gradlew --no-configuration-cache --console=plain clean assemble${{ matrix.abi }}${{ matrix.variant == 'foss' && 'Foss' || 'Gms' }}Release :app:lint${{ matrix.abi }}${{ matrix.variant == 'foss' && 'Foss' || 'Gms' }}Release --warning-mode summary
