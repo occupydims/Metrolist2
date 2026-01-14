@@ -43,20 +43,20 @@ jobs:
           
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
-        - name: Generate Android debug keystore
-  run: |
-    mkdir -p ~/.android
-    keytool -genkeypair \
-      -keystore ~/.android/debug.keystore \
-      -storetype JKS \
-      -storepass android \
-      -keypass android \
-      -alias androiddebugkey \
-      -keyalg RSA \
-      -keysize 2048 \
-      -validity 10000 \
-      -dname "CN=Android Debug,O=Android,C=US"
-      
+
+      - name: Generate Android debug keystore
+        run: |
+          mkdir -p ~/.android
+          keytool -genkeypair \
+            -keystore ~/.android/debug.keystore \
+            -storetype JKS \
+            -storepass android \
+            -keypass android \
+            -alias androiddebugkey \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
 
       - name: Build Release APK and Run Lint
         run: ./gradlew --no-configuration-cache --console=plain clean assemble${{ matrix.abi }}${{ matrix.variant == 'foss' && 'Foss' || 'Gms' }}Release :app:lint${{ matrix.abi }}${{ matrix.variant == 'foss' && 'Foss' || 'Gms' }}Release --warning-mode summary
@@ -65,16 +65,6 @@ jobs:
           GITHUB_EVENT_NAME: ${{ github.event_name }}
           LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
           LASTFM_SECRET: ${{ secrets.LASTFM_SECRET }}
-
-      - name: Sign APK
-        uses: ilharp/sign-android-release@v2.0.0
-        with:
-          releaseDir: app/build/outputs/apk/${{ matrix.abi }}${{ matrix.variant == 'foss' && 'Foss' || 'Gms' }}/release/
-          signingKey: ${{ secrets.KEYSTORE }}
-          keyAlias: ${{ secrets.KEY_ALIAS }}
-          keyStorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
-          keyPassword: ${{ secrets.KEY_PASSWORD }}
-          buildToolsVersion: 35.0.0
 
       - name: Move signed APK
         run: |
@@ -85,20 +75,13 @@ jobs:
           else
             TARGET_NAME="app-${{ matrix.abi }}-release.apk"
           fi
-          find "$OUTPUT_DIR" -name "*-signed.apk" -o -name "*-unsigned-signed.apk" | xargs -I{} mv {} "$OUTPUT_DIR/out/$TARGET_NAME"
-  
+          find "$OUTPUT_DIR" -name "*.apk" | head -1 | xargs -I{} mv {} "$OUTPUT_DIR/out/$TARGET_NAME"
+ 
       - name: Upload Signed APK
         uses: actions/upload-artifact@v6
         with:
-          name: ${{ matrix.variant == 'gms' && format('app-{0}-with-Google-Cast', matrix.abi) || format('app-{0}-release', matrix.abi) }}
-          path: app/build/outputs/apk/${{ matrix.abi }}${{ matrix.variant == 'foss' && 'Foss' || 'Gms' }}/release/out/*
-
-  build_debug:
-    name: build (debug)
-    if: github.actor != 'dependabot[bot]' && github.actor != 'renovate[bot]'
-    runs-on: ubuntu-latest
-
-          find "$OUTPUT_DIR" -name "*-signed.apk" -o -name "*-unsigned-signed.apk" | head -1 | xargs -I{} mv {} "$OUTPUT_DIR/out/$TARGET_NAME" 2>/dev/null || true
+          name: app-${{ matrix.abi }}-${{ matrix.variant }}-release
+          path: app/build/outputs/apk/${{ matrix.abi }}${{ matrix.variant == 'foss' && 'Foss' || 'Gms' }}/release/out/*.apk          find "$OUTPUT_DIR" -name "*-signed.apk" -o -name "*-unsigned-signed.apk" | head -1 | xargs -I{} mv {} "$OUTPUT_DIR/out/$TARGET_NAME" 2>/dev/null || true
         continue-on-error: true
 
       - name: Move unsigned APK (fallback)
