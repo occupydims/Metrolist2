@@ -3,160 +3,16 @@ name: Build APKs
 on:
   workflow_dispatch:
   push:
-    branches: [ '**' ]
-    paths-ignore:
-      - 'README.md'
-      - 'fastlane/**'
-      - 'assets/**'
-      - '.github/**/*.md'
-      - '.github/FUNDING.yml'
-      - '.github/ISSUE_TEMPLATE/**'
+    branches: [ "**" ]
 
 permissions:
   contents: write
-  discussions: write
 
 jobs:
   build:
-    if: github.actor != 'dependabot[bot]' && github.actor != 'renovate[bot]'
     runs-on: ubuntu-latest
 
     strategy:
+      fail-fast: false
       matrix:
-        abi: [ 'arm64', 'armeabi', 'x86', 'x86_64', 'universal' ]
-        variant: [ 'foss', 'gms' ]
-
-    steps:
-      - uses: actions/checkout@v6
-      
-      - name: Set up JDK 21
-        uses: actions/setup-java@v5
-        with:
-          java-version: '21'
-          distribution: 'temurin'
-
-      - name: Set Up Gradle
-        uses: gradle/actions/setup-gradle@v5
-        with:
-          cache-disabled: true
-          cache-cleanup: on-success
-          
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
-
-      - name: Generate Android debug keystore
-        run: |
-          mkdir -p ~/.android
-          keytool -genkeypair \
-            -keystore ~/.android/debug.keystore \
-            -storetype JKS \
-            -storepass android \
-            -keypass android \
-            -alias androiddebugkey \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
-            -dname "CN=Android Debug,O=Android,C=US"
-
-      - name: Build Release APK and Run Lint
-        run: ./gradlew --no-configuration-cache --console=plain clean assemble${{ matrix.abi }}${{ matrix.variant == 'foss' && 'Foss' || 'Gms' }}Release :app:lint${{ matrix.abi }}${{ matrix.variant == 'foss' && 'Foss' || 'Gms' }}Release --warning-mode summary
-        env:
-          PULL_REQUEST: 'false'
-          GITHUB_EVENT_NAME: ${{ github.event_name }}
-          LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
-          LASTFM_SECRET: ${{ secrets.LASTFM_SECRET }}
-
-      - name: Move signed APK
-        run: |
-          OUTPUT_DIR="app/build/outputs/apk/${{ matrix.abi }}${{ matrix.variant == 'foss' && 'Foss' || 'Gms' }}/release"
-          mkdir -p "$OUTPUT_DIR/out"
-          if [ "${{ matrix.variant }}" = "gms" ]; then
-            TARGET_NAME="app-${{ matrix.abi }}-with-Google-Cast.apk"
-          else
-            TARGET_NAME="app-${{ matrix.abi }}-release.apk"
-          fi
-          find "$OUTPUT_DIR" -name "*.apk" | head -1 | xargs -I{} mv {} "$OUTPUT_DIR/out/$TARGET_NAME"
- 
-      - name: Upload Signed APK
-        uses: actions/upload-artifact@v6
-        with:
-          name: app-${{ matrix.abi }}-${{ matrix.variant }}-release
-          path: app/build/outputs/apk/${{ matrix.abi }}${{ matrix.variant == 'foss' && 'Foss' || 'Gms' }}/release/out/*.apk          find "$OUTPUT_DIR" -name "*-signed.apk" -o -name "*-unsigned-signed.apk" | head -1 | xargs -I{} mv {} "$OUTPUT_DIR/out/$TARGET_NAME" 2>/dev/null || true
-        continue-on-error: true
-
-      - name: Move unsigned APK (fallback)
-        run: |
-          OUTPUT_DIR="app/build/outputs/apk/${{ matrix.abi }}${{ matrix.variant == 'foss' && 'Foss' || 'Gms' }}/release"
-          mkdir -p "$OUTPUT_DIR/out"
-          if [ "${{ matrix.variant }}" = "gms" ]; then
-            TARGET_NAME="app-${{ matrix.abi }}-with-Google-Cast-unsigned.apk"
-          else
-            TARGET_NAME="app-${{ matrix.abi }}-release-unsigned.apk"
-          fi
-          # Find and move any unsigned APK as fallback
-          find "$OUTPUT_DIR" -name "*.apk" -not -path "*/out/*" | head -1 | xargs -I{} cp {} "$OUTPUT_DIR/out/$TARGET_NAME" 2>/dev/null || true
-  
-      - name: Upload APK
-        uses: actions/upload-artifact@v6
-        with:
-          name: ${{ matrix.variant == 'gms' && format('app-{0}-with-Google-Cast', matrix.abi) || format('app-{0}-release', matrix.abi) }}
-          path: app/build/outputs/apk/${{ matrix.abi }}${{ matrix.variant == 'foss' && 'Foss' || 'Gms' }}/release/out/*
-          if-no-files-found: warn
-
-  build_debug:
-    name: build (debug)
-    if: github.actor != 'dependabot[bot]' && github.actor != 'renovate[bot]'
-    runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        abi: [ 'arm64', 'armeabi', 'x86', 'x86_64', 'universal' ]
-        variant: [ 'foss', 'gms' ]
-
-    steps:
-      - uses: actions/checkout@v6
-      
-      - name: Set up JDK 21
-        uses: actions/setup-java@v5
-        with:
-          java-version: '21'
-          distribution: 'temurin'
-          cache: gradle
-
-      - name: Set Up Gradle
-        uses: gradle/actions/setup-gradle@v5
-        with:
-          cache-disabled: false
-          cache-cleanup: on-success
-          
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
-
-      - name: Generate Android debug keystore
-        run: |
-          mkdir -p ~/.android
-          keytool -genkeypair \
-            -keystore ~/.android/debug.keystore \
-            -storetype JKS \
-            -storepass android \
-            -keypass android \
-            -alias androiddebugkey \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
-            -dname "CN=Android Debug,O=Android,C=US"
-
-      - name: Build Debug APK and Run Lint
-        run: ./gradlew --no-configuration-cache --console=plain clean assemble${{ matrix.abi }}${{ matrix.variant == 'foss' && 'Foss' || 'Gms' }}Debug :app:lint${{ matrix.abi }}${{ matrix.variant == 'foss' && 'Foss' || 'Gms' }}Debug --warning-mode summary
-        env:
-          PULL_REQUEST: 'false'
-          GITHUB_EVENT_NAME: ${{ github.event_name }}
-          LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY || 'dummy_key' }}
-          LASTFM_SECRET: ${{ secrets.LASTFM_SECRET || 'dummy_secret' }}
-
-      - name: Upload Debug APK
-        uses: actions/upload-artifact@v6
-        with:
-          name: ${{ matrix.variant == 'gms' && format('app-{0}-with-Google-Cast-debug', matrix.abi) || format('app-{0}-debug', matrix.abi) }}
-          path: app/build/outputs/apk/${{ matrix.abi }}${{ matrix.variant == 'foss' && 'Foss' || 'Gms' }}/debug/*.apk
-          if-no-files-found: warn
+        abi: [ arm64, armeabi, x86, x86_64, univer_]()
