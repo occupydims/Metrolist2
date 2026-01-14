@@ -15,4 +15,91 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        abi: [ arm64, armeabi, x86, x86_64, univer_]()
+        abi: [ arm64, armeabi, x86, x86_64, universal ]
+        variant: [ foss, gms ]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      # -------- RESTORE YOUR RELEASE KEYSTORE --------
+      - name: Restore release keystore
+        run: |
+          echo "${{ secrets.RELEASE_KEYSTORE_B64 }}" | base64 -d > ${{ github.workspace }}/release.keystore
+
+      # -------- BUILD RELEASE --------
+      - name: Build Release APK
+        run: |
+          ./gradlew \
+            clean \
+            assemble${{ matrix.abi }}${{ matrix.variant == 'foss' && 'Foss' || 'Gms' }}Release
+        env:
+          SIGNING_STORE_FILE: ${{ github.workspace }}/release.keystore
+          SIGNING_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          SIGNING_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+          LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
+          LASTFM_SECRET: ${{ secrets.LASTFM_SECRET }}
+
+      # -------- UPLOAD RELEASE APK --------
+      - name: Upload Release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-${{ matrix.abi }}-${{ matrix.variant }}-release
+          path: app/build/outputs/apk/**/release/*.apk
+          if-no-files-found: warn
+
+  build_debug:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        abi: [ arm64, armeabi, x86, x86_64, universal ]
+        variant: [ foss, gms ]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      # -------- BUILD DEBUG (uses default debug keystore) --------
+      - name: Build Debug APK
+        run: |
+          ./gradlew \
+            clean \
+            assemble${{ matrix.abi }}${{ matrix.variant == 'foss' && 'Foss' || 'Gms' }}Debug
+        env:
+          LASTFM_API_KEY: dummy
+          LASTFM_SECRET: dummy
+
+      # -------- UPLOAD DEBUG APK --------
+      - name: Upload Debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-${{ matrix.abi }}-${{ matrix.variant }}-debug
+          path: app/build/outputs/apk/**/debug/*.apk
+          if-no-files-found: warn
